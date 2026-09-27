@@ -1,0 +1,20 @@
+{
+  "name": "helios-time-lock-debugger-demo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "compile": "hl2ts --project catalyst_time_lock --format javascript --out-dir generated",
+    "status": "node status.mjs",
+    "lock": "node lock.mjs",
+    "unlock": "node unlock.mjs",
+    "cancel": "node cancel.mjs",
+    "check": "node check.mjs"
+  },
+  "dependencies": {
+    "@helios-lang/compiler": "0.17.33",
+    "@helios-lang/contract-utils": "0.3.22",
+    "@helios-lang/ledger": "0.7.24",
+    "@helios-lang/tx-utils": "0.6.41",
+    "dotenv": "^18.0.4"
+  }
+}
