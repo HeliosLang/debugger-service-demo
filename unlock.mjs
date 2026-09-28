@@ -1,13 +1,19 @@
 import { writeFileSync } from 'node:fs';
-import { beneficiary, client, lockedInput, spendBuilder, captures, bundle } from './common.mjs';
+import { beneficiary, owner, client, lockedInput, spendBuilder, ownerCollateral, captures, bundle } from './common.mjs';
+
+const txId = process.argv[2];
+if (!txId || process.argv.length !== 3) {
+  throw Error('Usage: npm run unlock -- <lock-transaction-id>');
+}
 
 const before = await captures();
-const { state, input } = await lockedInput();
+const { state, input } = await lockedInput(txId);
+const collateral = ownerCollateral(await owner.utxos);
 let failure;
 try {
-  await spendBuilder(input, state.lockUntil).build({
+  await spendBuilder(input, state.lockUntil).addCollateral(collateral).build({
     changeAddress: beneficiary.address,
-    spareUtxos: await beneficiary.utxos,
+    spareUtxos: [],
     networkParams: await client.parameters,
   });
 } catch (error) {

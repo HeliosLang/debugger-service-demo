@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { mkdirSync } from 'node:fs';
 import {
   makeBlockfrostV0Client,
   restoreRootPrivateKey,
@@ -10,10 +10,9 @@ import {
   makeShelleyAddress,
   makeTxInput,
   makeTxOutput,
-  makeTxOutputId,
 } from '@helios-lang/ledger';
 import { NETWORK, BLOCKFROST_API_KEY, LOCK_LOVELACE, required } from './config.mjs';
-import * as bundle from './generated/index.js';
+import * as bundle from './dist/index.js';
 
 export const client = makeBlockfrostV0Client(NETWORK, BLOCKFROST_API_KEY);
 
@@ -31,11 +30,6 @@ export const contract = makeContractContextBuilder()
   .with(bundle.time_lock)
   .build({ isMainnet: false });
 export const address = makeShelleyAddress(false, contract.time_lock.$hash);
-
-export const stateFile = new URL('./private/lock.json', import.meta.url);
-export const readState = () => JSON.parse(readFileSync(stateFile, 'utf8'));
-export const writeState = (state) =>
-  writeFileSync(stateFile, JSON.stringify(state, null, 2) + '\n', { mode: 0o600 });
 
 export const datum = (until) => ({
   lock_until: until,
@@ -57,9 +51,42 @@ export function spendBuilder(input, until, cancel = false) {
     .validToTime(Date.now() + 600_000);
 }
 
-export async function lockedInput() {
-  const state = readState();
-  const input = await client.getUtxo(makeTxOutputId(state.outputId));
+export function selectLockedInput(utxos, txId) {
+  if (!/^[0-9a-fA-F]{64}$/.test(txId)) {
+    throw Error('Lock transaction ID must be 64 hexadecimal characters');
+  }
+  const datumCast = contract.time_lock.Datum;
+  const matching = utxos.filter((utxo) => {
+    if (utxo.id.txId.toHex() !== txId.toLowerCase()) return false;
+    if (utxo.output.datum?.kind !== 'InlineTxOutputDatum') return false;
+    try {
+      const decoded = datumCast.fromUplcData(utxo.output.datum.data);
+      return (
+        decoded.owner.toHex() === owner.spendingPubKeyHash.toHex() &&
+        decoded.beneficiary.toHex() === beneficiary.spendingPubKeyHash.toHex()
+      );
+    } catch {
+      return false;
+    }
+  });
+  if (matching.length !== 1) {
+    throw Error(`Expected one unspent lock for this owner and beneficiary in ${txId}; found ${matching.length}`);
+  }
+  const input = matching[0];
+  const decoded = datumCast.fromUplcData(input.output.datum.data);
+  const state = {
+    txId: txId.toLowerCase(),
+    outputId: input.id.toString(),
+    lockUntil: decoded.lock_until,
+  };
+  return { state, input };
+}
+
+export async function lockedInput(txId) {
+  const { state, input } = selectLockedInput(
+    await client.getUtxos(address),
+    txId,
+  );
   // Restore the typed contract context after decoding the on-chain UTxO.
   return {
     state,
@@ -68,6 +95,18 @@ export async function lockedInput() {
       makeTxOutput(address, input.output.value, input.output.datum),
     ),
   };
+}
+
+export function ownerCollateral(utxos) {
+  const candidates = utxos.filter(
+    (utxo) => utxo.address.isEqual(owner.address) && utxo.value.assets.isZero(),
+  );
+  if (!candidates.length) {
+    throw Error('Owner wallet needs an ADA-only UTxO for script collateral');
+  }
+  return candidates.reduce((largest, utxo) =>
+    utxo.value.lovelace > largest.value.lovelace ? utxo : largest,
+  );
 }
 
 export async function submit(tx, wallet) {

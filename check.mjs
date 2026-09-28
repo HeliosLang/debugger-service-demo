@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
-import { makeTxInput, makeTxOutput, DEFAULT_NETWORK_PARAMS } from '@helios-lang/ledger';
-import { owner, beneficiary, lockBuilder, spendBuilder, address, bundle } from './common.mjs';
+import { makeTxInput, makeTxOutput, makeInlineTxOutputDatum, DEFAULT_NETWORK_PARAMS } from '@helios-lang/ledger';
+import { owner, beneficiary, contract, lockBuilder, spendBuilder, ownerCollateral, selectLockedInput, address, bundle } from './common.mjs';
 
-assert.equal(bundle.$debugger.name, 'catalyst_time_lock');
+assert.equal(bundle.$debugger.name, 'helios_demo');
 
 const funds = (wallet) => [
   makeTxInput('11'.repeat(32) + '#0', makeTxOutput(wallet.address, 50_000_000n)),
@@ -18,6 +18,24 @@ const lock = await lockBuilder(until).build({
 lock.addSignatures(await owner.signTx(lock));
 const index = lock.body.outputs.findIndex((output) => output.address.isEqual(address));
 const input = makeTxInput(`${lock.id().toHex()}#${index}`, lock.body.outputs[index]);
+const otherLock = await lockBuilder(until).build({
+  changeAddress: owner.address,
+  spareUtxos: [makeTxInput('33'.repeat(32) + '#0', makeTxOutput(owner.address, 50_000_000n))],
+  networkParams: params,
+});
+const otherIndex = otherLock.body.outputs.findIndex((output) => output.address.isEqual(address));
+const otherInput = makeTxInput(`${otherLock.id().toHex()}#${otherIndex}`, otherLock.body.outputs[otherIndex]);
+assert.equal(selectLockedInput([otherInput, input], lock.id().toHex()).input.id.toString(), input.id.toString());
+assert.throws(() => selectLockedInput([otherInput], lock.id().toHex()), /found 0/);
+const foreign = makeTxInput(
+  input.id,
+  makeTxOutput(address, input.value, makeInlineTxOutputDatum(contract.time_lock.Datum.toUplcData({
+    lock_until: until,
+    owner: beneficiary.spendingPubKeyHash,
+    beneficiary: beneficiary.spendingPubKeyHash,
+  }))),
+);
+assert.throws(() => selectLockedInput([foreign], lock.id().toHex()), /found 0/);
 
 const previous = globalThis.fetch;
 const captures = [];
@@ -30,9 +48,9 @@ globalThis.fetch = async (url, options) => {
 
 try {
   await assert.rejects(
-    spendBuilder(input, until).build({
+    spendBuilder(input, until).addCollateral(ownerCollateral(funds(owner))).build({
       changeAddress: beneficiary.address,
-      spareUtxos: funds(beneficiary),
+      spareUtxos: [],
       networkParams: params,
     }),
     /time lock not yet expired/,

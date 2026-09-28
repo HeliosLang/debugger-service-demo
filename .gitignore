@@ -1,5 +1,6 @@
 node_modules/
 generated/
+dist/
 private/
 .env
 .env.local

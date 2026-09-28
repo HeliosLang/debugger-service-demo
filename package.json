@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "compile": "hl2ts --project catalyst_time_lock --format javascript --out-dir generated",
+    "compile": "hl2ts --project helios_demo --format javascript --out-dir dist",
     "status": "node status.mjs",
     "lock": "node lock.mjs",
     "unlock": "node unlock.mjs",
@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@helios-lang/compiler": "0.17.33",
-    "@helios-lang/contract-utils": "0.3.22",
+    "@helios-lang/contract-utils": "0.3.24",
     "@helios-lang/ledger": "0.7.24",
     "@helios-lang/tx-utils": "0.6.41",
     "dotenv": "^18.0.4"

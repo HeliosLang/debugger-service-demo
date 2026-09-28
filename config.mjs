@@ -18,6 +18,9 @@ export function required(name) {
 }
 
 export const BLOCKFROST_API_KEY = required('BLOCKFROST_API_KEY');
+if (BLOCKFROST_API_KEY === 'preprod_your_key') {
+  throw Error('BLOCKFROST_API_KEY is still the example value. Replace it in .env.local with a valid Preprod Blockfrost project ID.');
+}
 if (!BLOCKFROST_API_KEY.startsWith('preprod')) {
   throw Error('This demo requires a Preprod Blockfrost API key');
 }
