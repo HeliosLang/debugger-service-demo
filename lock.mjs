@@ -4,10 +4,10 @@ import {
   lockBuilder,
   submit,
   address,
-} from './common.mjs';
+} from './common.mjs'
 
-// 24 hours, to make sure second script fails
-const until = Date.now() + 24 * 60 * 60 * 1000;
+// 10 minute lock, to make the demo fast
+const until = Date.now() + 10 * 60 * 1000
 
 const tx = await lockBuilder(until).build({
   changeAddress: owner.address,
@@ -25,4 +25,4 @@ const txId = tx.id().toHex()
 
 await submit(tx, owner)
 
-console.log(`Locked 10 tADA: ${txId}\nUnlock time: ${new Date(until).toISOString()}`);
+console.log(`Locked 10 tADA: ${txId}\nUnlock time: ${new Date(until).toISOString()}`)
