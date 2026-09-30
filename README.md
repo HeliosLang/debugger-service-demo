@@ -29,7 +29,7 @@ npm run lock
 npm run unlock -- <lock-transaction-id-printed-by-lock>
 ```
 
-`lock` locks 10 tADA for 10 minutes. You can create multiple locks. Keep each printed transaction ID to unlock or cancel that specific lock; the scripts read its output and deadline from the chain. If submission fails, check the transaction on Preprod before retrying.
+`lock` locks 10 tADA for 24 hours. You can create multiple locks. Keep each printed transaction ID to unlock or cancel that specific lock; the scripts read its output and deadline from the chain. If submission fails, check the transaction on Preprod before retrying.
 
 `unlock` takes the lock transaction ID, finds its unspent validator output, and checks that the inline datum names the configured owner and beneficiary. It uses only that escrowed output as a normal input, with an owner wallet UTxO reserved for collateral. It deliberately selects a validity start before the deadline, fails with **time lock not yet expired**, and submits no transaction. The builder automatically uploads using the generated bundle's debugger metadata. The script verifies a matching capture is retrievable and saves it to `private/failed-capture.json`. The Console project detail page shows the stored validator arguments.
 
